@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复版 SVG 异或工具 (Bug Re-introduced)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: white;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .threshold-value {
+            text-align: center;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .preview-box {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            background-color: #fafafa;
+        }
+
+        .preview-box h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .svg-display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 200px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .svg-display svg {
+            max-width: 100%;
+            max-height: 180px;
+            height: auto;
+        }
+
+        .svg-code {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+            word-wrap: break-word;
+            border: 1px solid #e9ecef;
+        }
+
+        .placeholder {
+            color: #999;
+            text-align: center;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .processing {
+            color: #007bff;
+            text-align: center;
+            font-weight: bold;
+            padding: 20px;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            font-weight: bold;
+            padding: 20px;
+            background-color: #f8d7da;
+            border-radius: 5px;
+        }
+
+        .success {
+            border-color: #28a745;
+        }
+
+        .export-section {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .export-section button {
+            margin: 0 10px;
+            background-color: #28a745;
+        }
+
+        .export-section button:hover {
+            background-color: #218838;
+        }
+
+        .server-status {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-good { background-color: #d4edda; color: #155724; }
+        .status-bad { background-color: #f8d7da; color: #721c24; }
+        .status-checking { background-color: #fff3cd; color: #856404; }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>修复版 SVG 异或工具 (Bug Re-introduced)</h1>
+
+    <div class="server-status" id="serverStatus">
+        <div>正在检查服务器连接...</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="svgFile">选择SVG文件：</label>
+            <input type="file" id="svgFile" accept=".svg">
+            <button onclick="loadTestSVG()">加载测试SVG</button>
+        </div>
+
+        <div class="control-group">
+            <label for="threshold">黑白转换阈值：</label>
+            <input type="range" id="threshold" min="0" max="255" value="128">
+            <div class="threshold-value" id="thresholdValue">128</div>
+        </div>
+
+        <div class="control-group">
+            <label>&nbsp;</label>
+            <button id="processBtn" onclick="processAll()" disabled>开始处理</button>
+            <button onclick="clearAll()">清除所有</button>
+        </div>
+    </div>
+
+    <div class="preview-container">
+        <div class="preview-box">
+            <h3>1. 原始彩色SVG</h3>
+            <div class="svg-display" id="originalDisplay">
+                <div class="placeholder">请选择SVG文件或加载测试SVG</div>
+            </div>
+            <div class="svg-code" id="originalCode">等待加载...</div>
+        </div>
+
+        <div class="preview-box">
+            <h3>2. 黑白转换结果</h3>
+            <div class="svg-display" id="monoDisplay">
+                <div class="placeholder">等待转换</div>
+            </div>
+            <div class="svg-code" id="monoCode">等待转换...</div>
+        </div>
+
+        <div class="preview-box">
+            <h3>3. 异或运算结果</h3>
+            <div class="svg-display" id="xorDisplay">
+                <div class="placeholder">等待异或运算</div>
+            </div>
+            <div class="svg-code" id="xorCode">等待异或运算...</div>
+        </div>
+    </div>
+
+    <div class="export-section" id="exportSection">
+        <button id="downloadBtn" onclick="downloadResult()">下载结果SVG</button>
+        <button id="copyBtn" onclick="copyResult()">复制SVG代码</button>
+    </div>
+</div>
+
+<script>
+    let originalSVG = null;
+    let monochromeSVG = null;
+    let finalSVG = null;
+
+    // 检查服务器状态
+    async function checkServerStatus() {
+        const statusDiv = document.getElementById('serverStatus');
+        statusDiv.className = 'server-status status-checking';
+        statusDiv.innerHTML = '<div>正在检查服务器连接...</div>';
+
+        try {
+            const testSvg = '<svg width="10" height="10"><rect fill="red" width="5" height="5"/></svg>';
+            const response = await fetch('http://localhost:8888/clipper/whiten', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ xml: testSvg, layer: 5 })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status !== 0) {
+                throw new Error(result.msg || '服务器返回错误');
+            }
+
+            statusDiv.className = 'server-status status-good';
+            statusDiv.innerHTML = '<div>✓ 服务器连接正常，可以开始处理</div>';
+            document.getElementById('processBtn').disabled = false;
+
+        } catch (error) {
+            console.error('服务器连接失败:', error);
+            statusDiv.className = 'server-status status-bad';
+            statusDiv.innerHTML = '<div>✗ 服务器连接失败: ' + error.message + '</div>';
+            document.getElementById('processBtn').disabled = true;
+        }
+    }
+
+    // 颜色转换函数
+    function parseColor(color) {
+        if (!color || color === 'none' || color === 'transparent') return null;
+
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            if (hex.length === 3) {
+                return {
+                    r: parseInt(hex[0] + hex[0], 16),
+                    g: parseInt(hex[1] + hex[1], 16),
+                    b: parseInt(hex[2] + hex[2], 16)
+                };
+            } else if (hex.length === 6) {
+                return {
+                    r: parseInt(hex.substr(0, 2), 16),
+                    g: parseInt(hex.substr(2, 2), 16),
+                    b: parseInt(hex.substr(4, 2), 16)
+                };
+            }
+        }
+
+        const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+        if (rgbMatch) {
+            return {
+                r: parseInt(rgbMatch[1]),
+                g: parseInt(rgbMatch[2]),
+                b: parseInt(rgbMatch[3])
+            };
+        }
+
+        const namedColors = {
+            'red': {r: 255, g: 0, b: 0}, 'green': {r: 0, g: 128, b: 0}, 'blue': {r: 0, g: 0, b: 255},
+            'black': {r: 0, g: 0, b: 0}, 'white': {r: 255, g: 255, b: 255}, 'yellow': {r: 255, g: 255, b: 0},
+            'cyan': {r: 0, g: 255, b: 255}, 'magenta': {r: 255, g: 0, b: 255}
+        };
+
+        return namedColors[color.toLowerCase()] || {r: 0, g: 0, b: 0};
+    }
+
+    function rgbToGrayscale(r, g, b) {
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+
+    function colorToMonochrome(color, threshold) {
+        const rgb = parseColor(color);
+        if (!rgb) return color;
+
+        const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+        return grayscale > threshold ? '#FFFFFF' : '#000000';
+    }
+
+    function convertSvgToMonochrome(svgString, threshold = 128) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgString, 'image/svg+xml');
+        const svg = doc.documentElement;
+
+        const colorAttributes = ['fill', 'stroke', 'stop-color'];
+        const elements = svg.querySelectorAll('*');
+
+        elements.forEach(element => {
+            colorAttributes.forEach(attr => {
+                const color = element.getAttribute(attr);
+                if (color && color !== 'none' && color !== 'transparent' && !color.startsWith('url(')) {
+                    const monoColor = colorToMonochrome(color, threshold);
+                    element.setAttribute(attr, monoColor);
+                }
+            });
+
+            // 处理style属性中的颜色
+            const style = element.getAttribute('style');
+            if (style) {
+                let newStyle = style;
+                colorAttributes.forEach(prop => {
+                    const regex = new RegExp(`${prop}\\s*:\\s*([^;]+)`, 'gi');
+                    newStyle = newStyle.replace(regex, (match, color) => {
+                        if (color && color.trim() !== 'none' && color.trim() !== 'transparent' && !color.trim().startsWith('url(')) {
+                            return `${prop}: ${colorToMonochrome(color.trim(), threshold)}`;
+                        }
+                        return match;
+                    });
+                });
+                element.setAttribute('style', newStyle);
+            }
+        });
+
+        return new XMLSerializer().serializeToString(svg);
+    }
+
+    // 调用Clipper API
+    async function callClipperAPI(svgXml) {
+        console.log('调用Clipper API...');
+
+        try {
+            const response = await fetch('http://localhost:8888/clipper/whiten', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ xml: svgXml, layer: 20 })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status !== 0) {
+                throw new Error(result.msg || 'API返回错误状态');
+            }
+
+            // ★★★ MODIFICATION: Return the raw data without fixing it ★★★
+            return result.data;
+
+        } catch (error) {
+            console.error('API调用失败:', error);
+            throw error;
+        }
+    }
+
+    // 显示SVG
+    function displaySVG(displayId, codeId, svg, title) {
+        const displayDiv = document.getElementById(displayId);
+        const codeDiv = document.getElementById(codeId);
+
+        displayDiv.innerHTML = svg;
+        codeDiv.textContent = svg;
+
+        console.log(`显示${title}:`, svg.substring(0, 200) + '...');
+    }
+
+    // 完整处理流程
+    async function processAll() {
+        if (!originalSVG) {
+            alert('请先选择SVG文件或加载测试SVG');
+            return;
+        }
+
+        try {
+            // 步骤1: 转换为黑白
+            console.log('开始转换为黑白...');
+            document.getElementById('monoDisplay').innerHTML = '<div class="processing">正在转换为黑白...</div>';
+
+            const threshold = parseInt(document.getElementById('threshold').value);
+            monochromeSVG = convertSvgToMonochrome(originalSVG, threshold);
+            displaySVG('monoDisplay', 'monoCode', monochromeSVG, '黑白转换');
+
+            // 步骤2: 异或运算
+            console.log('开始异或运算...');
+            document.getElementById('xorDisplay').innerHTML = '<div class="processing">正在进行异或运算...</div>';
+
+            finalSVG = await callClipperAPI(monochromeSVG);
+            displaySVG('xorDisplay', 'xorCode', finalSVG, '异或运算结果');
+
+            // 标记成功
+            document.getElementById('xorDisplay').parentElement.classList.add('success');
+            document.getElementById('exportSection').style.display = 'block';
+
+            console.log('处理完成！');
+
+        } catch (error) {
+            console.error('处理失败:', error);
+            const errorMsg = `<div class="error">处理失败: ${error.message}</div>`;
+
+            if (!monochromeSVG) {
+                document.getElementById('monoDisplay').innerHTML = errorMsg;
+            } else {
+                document.getElementById('xorDisplay').innerHTML = errorMsg;
+            }
+
+            alert(`处理失败:\n${error.message}\n\n请检查浏览器控制台获取更多信息。`);
+        }
+    }
+
+    // 加载测试SVG
+    function loadTestSVG() {
+        originalSVG = `<svg width="200" height="200" xmlns="http://www.w.org/2000/svg">
+                <circle cx="60" cy="60" r="40" fill="red"/>
+                <circle cx="140" cy="60" r="40" fill="green"/>
+                <circle cx="60" cy="140" r="40" fill="blue"/>
+                <circle cx="140" cy="140" r="40" fill="yellow"/>
+                <rect x="80" y="80" width="40" height="40" fill="purple" opacity="0.7"/>
+            </svg>`;
+
+        displaySVG('originalDisplay', 'originalCode', originalSVG, '原始SVG');
+        console.log('加载测试SVG完成');
+    }
+
+    // 文件上传处理
+    document.getElementById('svgFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.type === 'image/svg+xml') {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalSVG = e.target.result;
+                displaySVG('originalDisplay', 'originalCode', originalSVG, '上传的SVG');
+                console.log('SVG文件加载完成');
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // 阈值变化处理
+    document.getElementById('threshold').addEventListener('input', function(e) {
+        document.getElementById('thresholdValue').textContent = e.target.value;
+    });
+
+    // 下载结果
+    function downloadResult() {
+        if (!finalSVG) return;
+
+        const blob = new Blob([finalSVG], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'svg-xor-result.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // 复制结果
+    function copyResult() {
+        if (!finalSVG) return;
+
+        navigator.clipboard.writeText(finalSVG).then(function() {
+            const btn = document.getElementById('copyBtn');
+            const originalText = btn.textContent;
+            btn.textContent = '已复制！';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        });
+    }
+
+    // 清除所有
+    function clearAll() {
+        originalSVG = null;
+        monochromeSVG = null;
+        finalSVG = null;
+
+        document.getElementById('originalDisplay').innerHTML = '<div class="placeholder">请选择SVG文件或加载测试SVG</div>';
+        document.getElementById('monoDisplay').innerHTML = '<div class="placeholder">等待转换</div>';
+        document.getElementById('xorDisplay').innerHTML = '<div class="placeholder">等待异或运算</div>';
+
+        document.getElementById('originalCode').textContent = '等待加载...';
+        document.getElementById('monoCode').textContent = '等待转换...';
+        document.getElementById('xorCode').textContent = '等待异或运算...';
+
+        document.getElementById('xorDisplay').parentElement.classList.remove('success');
+        document.getElementById('exportSection').style.display = 'none';
+
+        console.log('清除所有内容完成');
+    }
+
+    // 页面加载完成后检查服务器
+    window.addEventListener('load', () => {
+        setTimeout(checkServerStatus, 1000);
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "name": "cliperapi",
+  "version": "1.0.0",
+  "description": "cliperapi test",
+  "main": "clipperapi.js",
+  "scripts": {
+    "dev": "nodemon cliperapi.js"
+  },
+  "author": "jiaokun",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^7.12.1",
+    "nodemon": "^2.0.4",
+    "prettier": "2.1.2"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "flatten-svg": "^0.3.0",
+    "jquery": "^3.5.0",
+    "js-base64": "^2.5.1",
+    "jsdom": "^13.2.0",
+    "jszip": "^3.6.0",
+    "lodash": "^4.17.15",
+    "log4js": "^3.0.6",
+    "randomstring": "^1.1.5",
+    "request": "^2.88.0",
+    "sharp": "^0.34.3",
+    "svg-flatten": "^1.0.1",
+    "svgdom": "0.1.13",
+    "tinycolor2": "^1.4.2"
+  },
+  "repository": {
+    "private": true
+  }
+}

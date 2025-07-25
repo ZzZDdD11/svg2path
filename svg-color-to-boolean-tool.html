@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG彩色转黑白异或工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .workflow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 0 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 120px;
+        }
+
+        .step-number {
+            background-color: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .step.completed .step-number {
+            background-color: #28a745;
+        }
+
+        .step.processing .step-number {
+            background-color: #ffc107;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .arrow {
+            font-size: 24px;
+            color: #007bff;
+            margin: 0 15px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: white;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .threshold-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .threshold-value {
+            text-align: center;
+            font-weight: bold;
+            color: #007bff;
+            min-width: 120px;
+        }
+
+        .otsu-info {
+            font-size: 12px;
+            color: #28a745;
+            margin-top: 5px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .auto-threshold-btn {
+            background-color: #28a745;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .auto-threshold-btn:hover {
+            background-color: #218838;
+        }
+
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .preview-container-4col {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .preview-container-4col {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .preview-container-4col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .preview-box {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            background-color: #fafafa;
+            position: relative;
+        }
+
+        .preview-box h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .preview-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .preview-box svg {
+            max-width: 100%;
+            max-height: 250px;
+            height: auto;
+        }
+
+        .placeholder {
+            color: #999;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .processing {
+            color: #007bff;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .success {
+            border-color: #28a745;
+        }
+
+        .export-section {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .export-section button {
+            margin: 0 10px;
+            background-color: #28a745;
+        }
+
+        .export-section button:hover {
+            background-color: #218838;
+        }
+
+        .sample-svgs {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .sample-svgs h3 {
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .sample-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sample-buttons button {
+            background-color: #6c757d;
+            font-size: 14px;
+            padding: 8px 16px;
+        }
+
+        .sample-buttons button:hover {
+            background-color: #5a6268;
+        }
+
+        .server-config {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+        }
+
+        .server-config label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .server-config input {
+            width: 100%;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .workflow {
+                flex-direction: column;
+            }
+            
+            .arrow {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SVG 彩色转黑白异或工具</h1>
+        
+        <!-- 工作流程显示 -->
+        <div class="workflow">
+            <div class="step" id="step1">
+                <div class="step-number">1</div>
+                <div>上传SVG</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div>转换Path</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div>显示Path</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step" id="step4">
+                <div class="step-number">4</div>
+                <div>Path异或</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step" id="step5">
+                <div class="step-number">5</div>
+                <div>完成</div>
+            </div>
+        </div>
+
+        <!-- 服务器配置 -->
+        <div class="server-config">
+            <label for="serverUrl">Clipper服务器地址：</label>
+            <input type="text" id="serverUrl" value="http://localhost:8888" placeholder="http://localhost:8888">
+            <button onclick="testServerConnection()" style="margin-top: 10px; padding: 5px 15px; font-size: 14px;">测试连接</button>
+            <div id="serverStatus" style="margin-top: 10px; padding: 5px; border-radius: 3px; font-size: 14px;"></div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="svgFile">选择SVG文件：</label>
+                <input type="file" id="svgFile" accept=".svg">
+            </div>
+            
+            <div class="control-group">
+                <label for="threshold">黑白转换阈值：</label>
+                <div class="threshold-container">
+                    <input type="range" id="threshold" min="0" max="255" value="128">
+                    <button class="auto-threshold-btn" id="autoThresholdBtn">自动阈值(OTSU)</button>
+                </div>
+                <div class="threshold-value" id="thresholdValue">128</div>
+                <div class="otsu-info" id="otsuInfo" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- 预览区域 -->
+        <div class="preview-container-4col">
+            <div class="preview-box">
+                <h3>1. 原始彩色SVG</h3>
+                <div class="preview-content" id="originalPreview">
+                    <div class="placeholder">请选择一个SVG文件</div>
+                </div>
+            </div>
+            
+            <div class="preview-box">
+                <h3>2. 黑色Path</h3>
+                <div class="preview-content" id="blackPreview">
+                    <div class="placeholder">等待生成</div>
+                </div>
+            </div>
+
+            <div class="preview-box">
+                <h3>3. 白色Path</h3>
+                <div class="preview-content" id="whitePreview">
+                    <div class="placeholder">等待生成</div>
+                </div>
+            </div>
+            
+            <div class="preview-box">
+                <h3>4. Path异或结果</h3>
+                <div class="preview-content" id="xorPreview">
+                    <div class="placeholder">等待异或运算</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导出按钮 -->
+        <div class="export-section" id="exportSection">
+            <h3 style="margin-bottom: 15px; color: #333;">导出选项</h3>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <button id="downloadBlackBtn" style="background-color: #343a40;">下载黑色Path</button>
+                <button id="downloadWhiteBtn" style="background-color: #6c757d;">下载白色Path</button>
+                <button id="downloadXorBtn" style="background-color: #28a745;">下载异或结果</button>
+                <button id="copyBtn" style="background-color: #17a2b8;">复制异或代码</button>
+            </div>
+        </div>
+
+        <!-- 示例SVG -->
+        <div class="sample-svgs">
+            <h3>示例SVG图形</h3>
+            <div class="sample-buttons">
+                <button onclick="loadSampleSVG('colorfulCircles')">彩色圆圈</button>
+                <button onclick="loadSampleSVG('gradient')">渐变图形</button>
+                <button onclick="loadSampleSVG('complex')">复杂图标</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let originalSVG = null;
+        let blackVersionSVG = null;
+        let whiteVersionSVG = null;
+        let finalSVG = null;
+        let currentPixelData = null;
+
+        // OTSU算法相关函数
+        function svgToPixelData(svgString) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // 创建临时Canvas
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 解析SVG
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+                    const svgElement = svgDoc.documentElement;
+                    
+                    // 获取SVG尺寸
+                    const svgWidth = parseInt(svgElement.getAttribute('width')) || 300;
+                    const svgHeight = parseInt(svgElement.getAttribute('height')) || 300;
+                    
+                    tempCanvas.width = svgWidth;
+                    tempCanvas.height = svgHeight;
+                    
+                    // 创建图片对象
+                    const img = new Image();
+                    img.onload = function() {
+                        tempCtx.drawImage(img, 0, 0, svgWidth, svgHeight);
+                        const imageData = tempCtx.getImageData(0, 0, svgWidth, svgHeight);
+                        resolve(imageData);
+                    };
+                    img.onerror = function() {
+                        reject(new Error('SVG转换为图片失败'));
+                    };
+                    
+                    // 将SVG转换为data URL
+                    const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+                    const url = URL.createObjectURL(svgBlob);
+                    img.src = url;
+                    
+                    // 清理URL
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        function calculateHistogram(imageData) {
+            const histogram = new Array(256).fill(0);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                // 计算灰度值 (标准RGB到灰度转换)
+                const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+                histogram[gray]++;
+            }
+            
+            return histogram;
+        }
+
+        function calculateOtsuThreshold(imageData) {
+            const histogram = calculateHistogram(imageData);
+            const total = imageData.width * imageData.height;
+            
+            let sum = 0;
+            for (let i = 0; i < 256; i++) {
+                sum += i * histogram[i];
+            }
+            
+            let sumB = 0;
+            let wB = 0;
+            let wF = 0;
+            let maxVariance = 0;
+            let threshold = 0;
+            
+            for (let t = 0; t < 256; t++) {
+                wB += histogram[t];
+                if (wB === 0) continue;
+                
+                wF = total - wB;
+                if (wF === 0) break;
+                
+                sumB += t * histogram[t];
+                
+                const mB = sumB / wB;
+                const mF = (sum - sumB) / wF;
+                
+                const variance = wB * wF * (mB - mF) * (mB - mF);
+                
+                if (variance > maxVariance) {
+                    maxVariance = variance;
+                    threshold = t;
+                }
+            }
+            
+            return threshold;
+        }
+
+        async function applyOtsuThreshold() {
+            if (!originalSVG) {
+                alert('请先选择一个SVG文件');
+                return;
+            }
+
+            try {
+                // 显示处理状态
+                const otsuInfo = document.getElementById('otsuInfo');
+                otsuInfo.style.display = 'block';
+                otsuInfo.textContent = '正在计算最佳阈值...';
+                otsuInfo.style.color = '#007bff';
+
+                // 将SVG转换为像素数据
+                const pixelData = await svgToPixelData(originalSVG);
+                currentPixelData = pixelData;
+                
+                // 计算OTSU阈值
+                const otsuThreshold = calculateOtsuThreshold(pixelData);
+                
+                // 更新UI
+                document.getElementById('threshold').value = otsuThreshold;
+                document.getElementById('thresholdValue').textContent = otsuThreshold;
+                
+                // 显示OTSU信息
+                otsuInfo.textContent = `OTSU最佳阈值: ${otsuThreshold} (自动计算)`;
+                otsuInfo.style.color = '#28a745';
+                
+                console.log('OTSU阈值计算完成:', otsuThreshold);
+                
+                // 如果已经有原始SVG，自动重新处理
+                if (originalSVG) {
+                    setTimeout(() => {
+                        // 触发阈值变化事件来重新处理
+                        const event = new Event('change');
+                        document.getElementById('threshold').dispatchEvent(event);
+                    }, 100);
+                }
+                
+            } catch (error) {
+                console.error('OTSU阈值计算失败:', error);
+                const otsuInfo = document.getElementById('otsuInfo');
+                otsuInfo.textContent = `计算失败: ${error.message}`;
+                otsuInfo.style.color = '#dc3545';
+            }
+        }
+
+        // 黑白分离显示功能
+        function generateBlackWhiteVersions(svgString, threshold = 128) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+            
+            // 创建黑色版本
+            const blackDoc = doc.cloneNode(true);
+            const blackSvg = blackDoc.documentElement;
+            processElementsForBlackVersion(blackSvg, threshold);
+            const blackVersionSvg = new XMLSerializer().serializeToString(blackSvg);
+            
+            // 创建白色版本  
+            const whiteDoc = doc.cloneNode(true);
+            const whiteSvg = whiteDoc.documentElement;
+            processElementsForWhiteVersion(whiteSvg, threshold);
+            const whiteVersionSvg = new XMLSerializer().serializeToString(whiteSvg);
+            
+            return {
+                black: blackVersionSvg,
+                white: whiteVersionSvg
+            };
+        }
+
+        function processElementsForBlackVersion(svgElement, threshold) {
+            const colorAttributes = ['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color'];
+            const elements = svgElement.querySelectorAll('*');
+            
+            elements.forEach(element => {
+                // 处理属性
+                colorAttributes.forEach(attr => {
+                    const color = element.getAttribute(attr);
+                    if (color && color !== 'none' && color !== 'transparent' && !color.startsWith('url(')) {
+                        const rgb = parseColor(color);
+                        if (rgb) {
+                            const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+                            // 黑色版本：灰度值<=阈值显示黑色，否则透明
+                            if (grayscale <= threshold) {
+                                element.setAttribute(attr, '#000000');
+                            } else {
+                                element.setAttribute(attr, 'transparent');
+                            }
+                        }
+                    }
+                });
+                
+                // 处理style属性
+                const style = element.getAttribute('style');
+                if (style) {
+                    let newStyle = style;
+                    colorAttributes.forEach(prop => {
+                        const regex = new RegExp(`${prop}\\s*:\\s*([^;]+)`, 'gi');
+                        newStyle = newStyle.replace(regex, (match, color) => {
+                            if (color && color.trim() !== 'none' && color.trim() !== 'transparent' && !color.trim().startsWith('url(')) {
+                                const rgb = parseColor(color.trim());
+                                if (rgb) {
+                                    const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+                                    if (grayscale <= threshold) {
+                                        return `${prop}: #000000`;
+                                    } else {
+                                        return `${prop}: transparent`;
+                                    }
+                                }
+                            }
+                            return match;
+                        });
+                    });
+                    element.setAttribute('style', newStyle);
+                }
+            });
+        }
+
+        function processElementsForWhiteVersion(svgElement, threshold) {
+            const colorAttributes = ['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color'];
+            const elements = svgElement.querySelectorAll('*');
+            
+            elements.forEach(element => {
+                // 处理属性
+                colorAttributes.forEach(attr => {
+                    const color = element.getAttribute(attr);
+                    if (color && color !== 'none' && color !== 'transparent' && !color.startsWith('url(')) {
+                        const rgb = parseColor(color);
+                        if (rgb) {
+                            const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+                            // 白色版本：灰度值>阈值显示白色，否则透明
+                            if (grayscale > threshold) {
+                                element.setAttribute(attr, '#FFFFFF');
+                            } else {
+                                element.setAttribute(attr, 'transparent');
+                            }
+                        }
+                    }
+                });
+                
+                // 处理style属性
+                const style = element.getAttribute('style');
+                if (style) {
+                    let newStyle = style;
+                    colorAttributes.forEach(prop => {
+                        const regex = new RegExp(`${prop}\\s*:\\s*([^;]+)`, 'gi');
+                        newStyle = newStyle.replace(regex, (match, color) => {
+                            if (color && color.trim() !== 'none' && color.trim() !== 'transparent' && !color.trim().startsWith('url(')) {
+                                const rgb = parseColor(color.trim());
+                                if (rgb) {
+                                    const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+                                    if (grayscale > threshold) {
+                                        return `${prop}: #FFFFFF`;
+                                    } else {
+                                        return `${prop}: transparent`;
+                                    }
+                                }
+                            }
+                            return match;
+                        });
+                    });
+                    element.setAttribute('style', newStyle);
+                }
+            });
+        }
+
+        // 示例SVG
+        const sampleSVGs = {
+            colorfulCircles: `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="40" fill="#FF6B6B"/>
+                <circle cx="150" cy="50" r="40" fill="#4ECDC4"/>
+                <circle cx="50" cy="150" r="40" fill="#45B7D1"/>
+                <circle cx="150" cy="150" r="40" fill="#F7B731"/>
+                <rect x="75" y="75" width="50" height="50" fill="#5F27CD" opacity="0.7"/>
+            </svg>`,
+            
+            gradient: `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+                        <stop offset="50%" style="stop-color:#4ECDC4;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#45B7D1;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <rect x="10" y="10" width="180" height="180" fill="url(#grad1)" rx="20"/>
+                <circle cx="100" cy="100" r="50" fill="#FFF" opacity="0.8"/>
+            </svg>`,
+            
+            complex: `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 20 L120 80 L180 80 L130 120 L150 180 L100 140 L50 180 L70 120 L20 80 L80 80 Z" 
+                      fill="#FFD700" stroke="#FF8C00" stroke-width="2"/>
+                <circle cx="100" cy="100" r="30" fill="#FF6347" opacity="0.7"/>
+                <text x="100" y="105" text-anchor="middle" fill="#006400" font-size="20" font-weight="bold">★</text>
+            </svg>`
+        };
+
+        // 更新步骤状态
+        function updateStep(stepId, status) {
+            const step = document.getElementById(stepId);
+            step.classList.remove('completed', 'processing');
+            if (status === 'completed') {
+                step.classList.add('completed');
+            } else if (status === 'processing') {
+                step.classList.add('processing');
+            }
+        }
+
+        // 颜色转换函数 - 从mono-svg-converter-basic.html复制
+        function parseColor(color) {
+            if (!color || color === 'none' || color === 'transparent') {
+                return null;
+            }
+
+            // 处理hex颜色
+            if (color.startsWith('#')) {
+                const hex = color.slice(1);
+                if (hex.length === 3) {
+                    return {
+                        r: parseInt(hex[0] + hex[0], 16),
+                        g: parseInt(hex[1] + hex[1], 16),
+                        b: parseInt(hex[2] + hex[2], 16)
+                    };
+                } else if (hex.length === 6) {
+                    return {
+                        r: parseInt(hex.substr(0, 2), 16),
+                        g: parseInt(hex.substr(2, 2), 16),
+                        b: parseInt(hex.substr(4, 2), 16)
+                    };
+                }
+            }
+
+            // 处理rgb颜色
+            const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+            if (rgbMatch) {
+                return {
+                    r: parseInt(rgbMatch[1]),
+                    g: parseInt(rgbMatch[2]),
+                    b: parseInt(rgbMatch[3])
+                };
+            }
+
+            // 处理命名颜色
+            const namedColors = {
+                'red': {r: 255, g: 0, b: 0}, 'green': {r: 0, g: 128, b: 0}, 'blue': {r: 0, g: 0, b: 255},
+                'black': {r: 0, g: 0, b: 0}, 'white': {r: 255, g: 255, b: 255}, 'yellow': {r: 255, g: 255, b: 0},
+                'cyan': {r: 0, g: 255, b: 255}, 'magenta': {r: 255, g: 0, b: 255}, 'silver': {r: 192, g: 192, b: 192},
+                'gray': {r: 128, g: 128, b: 128}, 'grey': {r: 128, g: 128, b: 128}, 'maroon': {r: 128, g: 0, b: 0},
+                'olive': {r: 128, g: 128, b: 0}, 'lime': {r: 0, g: 255, b: 0}, 'aqua': {r: 0, g: 255, b: 255},
+                'teal': {r: 0, g: 128, b: 128}, 'navy': {r: 0, g: 0, b: 128}, 'fuchsia': {r: 255, g: 0, b: 255},
+                'purple': {r: 128, g: 0, b: 128}
+            };
+
+            return namedColors[color.toLowerCase()] || {r: 0, g: 0, b: 0};
+        }
+
+        function rgbToGrayscale(r, g, b) {
+            return 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+
+        function colorToMonochrome(color, threshold) {
+            const rgb = parseColor(color);
+            if (!rgb) return color;
+            
+            const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+            return grayscale > threshold ? '#FFFFFF' : '#000000';
+        }
+
+        function convertSvgToMonochrome(svgString, threshold = 128) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+            const svg = doc.documentElement;
+            
+            // 需要处理的颜色属性
+            const colorAttributes = ['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color'];
+            
+            // 遍历所有元素
+            const elements = svg.querySelectorAll('*');
+            elements.forEach(element => {
+                // 处理属性
+                colorAttributes.forEach(attr => {
+                    const color = element.getAttribute(attr);
+                    if (color && color !== 'none' && color !== 'transparent') {
+                        // 处理url引用（如渐变）
+                        if (color.startsWith('url(')) {
+                            return;
+                        }
+                        const monoColor = colorToMonochrome(color, threshold);
+                        element.setAttribute(attr, monoColor);
+                    }
+                });
+                
+                // 处理style属性中的颜色
+                const style = element.getAttribute('style');
+                if (style) {
+                    let newStyle = style;
+                    colorAttributes.forEach(prop => {
+                        const regex = new RegExp(`${prop}\\s*:\\s*([^;]+)`, 'gi');
+                        newStyle = newStyle.replace(regex, (match, color) => {
+                            if (color && color.trim() !== 'none' && color.trim() !== 'transparent' && !color.trim().startsWith('url(')) {
+                                return `${prop}: ${colorToMonochrome(color.trim(), threshold)}`;
+                            }
+                            return match;
+                        });
+                    });
+                    element.setAttribute('style', newStyle);
+                }
+
+                // 特殊处理文本元素的颜色
+                if (element.tagName === 'text' || element.tagName === 'tspan') {
+                    const fill = element.getAttribute('fill') || 'black';
+                    if (fill !== 'none' && fill !== 'transparent') {
+                        element.setAttribute('fill', colorToMonochrome(fill, threshold));
+                    }
+                }
+            });
+            
+            return new XMLSerializer().serializeToString(svg);
+        }
+
+        // 修复SVG显示问题
+        function fixSVGForDisplay(svgString) {
+            // 清理API返回的SVG中的问题
+            let fixedSVG = svgString;
+            
+            // 修复空的viewBox
+            if (fixedSVG.includes('viewBox=""')) {
+                // 尝试从width和height推导viewBox
+                const widthMatch = fixedSVG.match(/width="([^"]+)"/);
+                const heightMatch = fixedSVG.match(/height="([^"]+)"/);
+                if (widthMatch && heightMatch) {
+                    const width = widthMatch[1];
+                    const height = heightMatch[1];
+                    fixedSVG = fixedSVG.replace('viewBox=""', `viewBox="0 0 ${width} ${height}"`);
+                }
+            }
+            
+            // 修复transform中的undefined
+            fixedSVG = fixedSVG.replace(/translate\([^,]*,\s*undefined\)/g, 'translate(0, 0)');
+            fixedSVG = fixedSVG.replace(/translate\(,\s*undefined\)/g, 'translate(0, 0)');
+            fixedSVG = fixedSVG.replace(/translate\(undefined[^)]*\)/g, 'translate(0, 0)');
+            
+            // 确保SVG有正确的尺寸
+            if (!fixedSVG.includes('width=') && !fixedSVG.includes('height=')) {
+                fixedSVG = fixedSVG.replace('<svg', '<svg width="300" height="300"');
+            }
+            
+            console.log('修复前SVG:', svgString.substring(0, 200));
+            console.log('修复后SVG:', fixedSVG.substring(0, 200));
+            
+            return fixedSVG;
+        }
+
+        // 将两个path SVG合并为一个SVG用于异或运算
+        function combineTwoPathsForXOR(blackPathSVG, whitePathSVG) {
+            try {
+                const parser = new DOMParser();
+                
+                // 解析黑色path SVG
+                const blackDoc = parser.parseFromString(blackPathSVG, 'image/svg+xml');
+                const blackSvg = blackDoc.documentElement;
+                const blackPath = blackSvg.querySelector('path');
+                
+                // 解析白色path SVG
+                const whiteDoc = parser.parseFromString(whitePathSVG, 'image/svg+xml');
+                const whiteSvg = whiteDoc.documentElement;
+                const whitePath = whiteSvg.querySelector('path');
+                
+                if (!blackPath || !whitePath) {
+                    throw new Error('无法从SVG中提取path元素');
+                }
+                
+                // 获取SVG的基本属性（从黑色SVG中获取，因为它们应该有相同的viewBox）
+                const viewBox = blackSvg.getAttribute('viewBox') || whiteSvg.getAttribute('viewBox');
+                const width = blackSvg.getAttribute('width') || whiteSvg.getAttribute('width');
+                const height = blackSvg.getAttribute('height') || whiteSvg.getAttribute('height');
+                
+                // 创建合并后的SVG
+                const combinedSVG = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+                    version="1.1" preserveAspectRatio="none" 
+                    viewBox="${viewBox}" width="${width}" height="${height}">
+                    ${blackPath.outerHTML}
+                    ${whitePath.outerHTML}
+                </svg>`;
+                
+                console.log('黑色path:', blackPath.outerHTML.substring(0, 100));
+                console.log('白色path:', whitePath.outerHTML.substring(0, 100));
+                console.log('合并后SVG:', combinedSVG.substring(0, 300));
+                
+                return combinedSVG;
+                
+            } catch (error) {
+                console.error('合并两个path失败:', error);
+                throw new Error(`合并path失败: ${error.message}`);
+            }
+        }
+
+        // 修改callClipperAPI支持fillColor参数
+        async function callClipperAPI(svgXml, fillColor = '#ffffff') {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            if (!serverUrl) {
+                throw new Error('请设置Clipper服务器地址');
+            }
+
+            console.log('准备调用Clipper API...', { serverUrl, svgLength: svgXml.length, fillColor });
+
+            try {
+                const response = await fetch(`${serverUrl}/clipper/whiten`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        xml: svgXml,
+                        layer: 20, // 减少layer值，提高处理速度
+                        fillColor: fillColor
+                    })
+                });
+
+                console.log('API响应状态:', response.status, response.statusText);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API错误响应:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('API响应结果:', { status: result.status, msg: result.msg, dataLength: result.data?.length });
+                
+                if (result.status !== 0) {
+                    throw new Error(result.msg || 'Clipper API调用失败');
+                }
+
+                return result.data;
+            } catch (error) {
+                console.error('Clipper API调用失败:', error);
+                if (error.message.includes('fetch')) {
+                    throw new Error('无法连接到Clipper服务器，请确保：\n1. 服务器正在运行 (http://localhost:8888)\n2. 没有防火墙阻拦\n3. 服务器支持CORS');
+                }
+                throw error;
+            }
+        }
+
+        // 完整的处理流程
+        async function processComplete() {
+            if (!originalSVG) {
+                alert('请先选择一个SVG文件');
+                return;
+            }
+
+            try {
+                // 步骤2: 分离黑白并转换为单一path
+                updateStep('step2', 'processing');
+                document.getElementById('blackPreview').innerHTML = '<div class="processing">正在生成黑色path...</div>';
+                document.getElementById('whitePreview').innerHTML = '<div class="processing">正在生成白色path...</div>';
+                
+                const threshold = parseInt(document.getElementById('threshold').value);
+                
+                // 生成黑白分离版本（保持原始结构用于显示中间过程）
+                const versions = generateBlackWhiteVersions(originalSVG, threshold);
+                
+                // 将黑色版本转换为单一path
+                console.log('正在将黑色版本转换为单一path...');
+                blackVersionSVG = await callClipperAPI(versions.black, '#000000');
+                
+                // 将白色版本转换为单一path
+                console.log('正在将白色版本转换为单一path...');
+                whiteVersionSVG = await callClipperAPI(versions.white, '#ffffff');
+                
+                updateStep('step2', 'completed');
+
+                // 步骤3: 显示单一path版本
+                updateStep('step3', 'processing');
+                
+                // 显示黑色path版本
+                const fixedBlackSVG = fixSVGForDisplay(blackVersionSVG);
+                document.getElementById('blackPreview').innerHTML = fixedBlackSVG;
+                
+                // 显示白色path版本
+                const fixedWhiteSVG = fixSVGForDisplay(whiteVersionSVG);
+                document.getElementById('whitePreview').innerHTML = fixedWhiteSVG;
+                
+                updateStep('step3', 'completed');
+
+                // 步骤4: 对两个path进行异或运算
+                updateStep('step4', 'processing');
+                document.getElementById('xorPreview').innerHTML = '<div class="processing">正在对两个path进行异或运算...</div>';
+                
+                // 将两个path合并成一个SVG进行异或运算
+                const combinedSVG = combineTwoPathsForXOR(fixedBlackSVG, fixedWhiteSVG);
+                console.log('合并后的SVG用于异或:', combinedSVG);
+                
+                finalSVG = await callClipperAPI(combinedSVG, '#000000');
+                
+                // 修复SVG显示问题
+                const fixedFinalSVG = fixSVGForDisplay(finalSVG);
+                document.getElementById('xorPreview').innerHTML = fixedFinalSVG;
+                document.getElementById('xorPreview').parentElement.classList.add('success');
+                updateStep('step4', 'completed');
+
+                // 步骤5: 完成
+                updateStep('step5', 'completed');
+                document.getElementById('exportSection').style.display = 'block';
+
+            } catch (error) {
+                console.error('处理失败:', error);
+                const errorMsg = `<div class="error">处理失败: ${error.message}</div>`;
+                
+                if (!blackVersionSVG || !whiteVersionSVG) {
+                    document.getElementById('blackPreview').innerHTML = errorMsg;
+                    document.getElementById('whitePreview').innerHTML = errorMsg;
+                    updateStep('step2', '');
+                } else if (!finalSVG) {
+                    document.getElementById('xorPreview').innerHTML = errorMsg;
+                    updateStep('step4', '');
+                }
+                
+                // 显示详细错误信息给用户
+                alert(`处理失败:\n${error.message}\n\n请检查浏览器控制台获取更多信息。`);
+            }
+        }
+
+        // 事件处理
+        document.getElementById('threshold').addEventListener('input', function(e) {
+            document.getElementById('thresholdValue').textContent = e.target.value;
+            // 清除OTSU信息显示
+            const otsuInfo = document.getElementById('otsuInfo');
+            otsuInfo.style.display = 'none';
+        });
+
+        // OTSU自动阈值按钮事件
+        document.getElementById('autoThresholdBtn').addEventListener('click', applyOtsuThreshold);
+
+        document.getElementById('svgFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type === 'image/svg+xml') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    originalSVG = e.target.result;
+                    document.getElementById('originalPreview').innerHTML = originalSVG;
+                    updateStep('step1', 'completed');
+                    
+                    // 重置后续步骤
+                    updateStep('step2', '');
+                    updateStep('step3', '');
+                    updateStep('step4', '');
+                    updateStep('step5', '');
+                    document.getElementById('blackPreview').innerHTML = '<div class="placeholder">等待生成</div>';
+                    document.getElementById('whitePreview').innerHTML = '<div class="placeholder">等待生成</div>';
+                    document.getElementById('xorPreview').innerHTML = '<div class="placeholder">等待异或运算</div>';
+                    document.getElementById('xorPreview').parentElement.classList.remove('success');
+                    document.getElementById('exportSection').style.display = 'none';
+                    
+                    // 自动开始处理
+                    setTimeout(processComplete, 500);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 下载黑色版本
+        document.getElementById('downloadBlackBtn').addEventListener('click', function() {
+            if (!blackVersionSVG) return;
+            
+            const fixedSVG = fixSVGForDisplay(blackVersionSVG);
+            const blob = new Blob([fixedSVG], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'black-path.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // 下载白色版本
+        document.getElementById('downloadWhiteBtn').addEventListener('click', function() {
+            if (!whiteVersionSVG) return;
+            
+            const fixedSVG = fixSVGForDisplay(whiteVersionSVG);
+            const blob = new Blob([fixedSVG], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'white-path.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // 下载异或结果
+        document.getElementById('downloadXorBtn').addEventListener('click', function() {
+            if (!finalSVG) return;
+            
+            const fixedSVG = fixSVGForDisplay(finalSVG);
+            const blob = new Blob([fixedSVG], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'xor-result.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            if (!finalSVG) return;
+            
+            const fixedSVG = fixSVGForDisplay(finalSVG);
+            navigator.clipboard.writeText(fixedSVG).then(function() {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '已复制！';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        });
+
+        // 测试服务器连接
+        async function testServerConnection() {
+            const statusDiv = document.getElementById('serverStatus');
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            
+            statusDiv.textContent = '正在测试连接...';
+            statusDiv.style.backgroundColor = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            
+            try {
+                const testSvg = '<svg width="10" height="10"><rect fill="red" width="5" height="5"/></svg>';
+                const response = await fetch(`${serverUrl}/clipper/whiten`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ xml: testSvg, layer: 5 })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.status !== 0) {
+                    throw new Error(result.msg || '服务器返回错误');
+                }
+                
+                statusDiv.textContent = '✓ 服务器连接正常';
+                statusDiv.style.backgroundColor = '#d4edda';
+                statusDiv.style.color = '#155724';
+                
+            } catch (error) {
+                console.error('服务器连接测试失败:', error);
+                statusDiv.textContent = `✗ 连接失败: ${error.message}`;
+                statusDiv.style.backgroundColor = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+            }
+        }
+
+        // 加载示例SVG
+        function loadSampleSVG(sampleName) {
+            originalSVG = sampleSVGs[sampleName];
+            document.getElementById('originalPreview').innerHTML = originalSVG;
+            updateStep('step1', 'completed');
+            
+            // 重置后续步骤
+            updateStep('step2', '');
+            updateStep('step3', '');
+            updateStep('step4', '');
+            updateStep('step5', '');
+            document.getElementById('blackPreview').innerHTML = '<div class="placeholder">等待生成</div>';
+            document.getElementById('whitePreview').innerHTML = '<div class="placeholder">等待生成</div>';
+            document.getElementById('xorPreview').innerHTML = '<div class="placeholder">等待异或运算</div>';
+            document.getElementById('xorPreview').parentElement.classList.remove('success');
+            document.getElementById('exportSection').style.display = 'none';
+            
+            // 自动开始处理
+            setTimeout(processComplete, 500);
+        }
+
+        // 阈值变化时自动重新处理
+        document.getElementById('threshold').addEventListener('change', function() {
+            if (originalSVG) {
+                // 清除OTSU信息显示（如果是手动调节）
+                const otsuInfo = document.getElementById('otsuInfo');
+                if (otsuInfo.textContent && !otsuInfo.textContent.includes('正在计算')) {
+                    otsuInfo.style.display = 'none';
+                }
+                
+                // 重置步骤2及之后的状态
+                updateStep('step2', '');
+                updateStep('step3', '');
+                updateStep('step4', '');
+                updateStep('step5', '');
+                document.getElementById('blackPreview').innerHTML = '<div class="placeholder">等待生成</div>';
+                document.getElementById('whitePreview').innerHTML = '<div class="placeholder">等待生成</div>';
+                document.getElementById('xorPreview').innerHTML = '<div class="placeholder">等待异或运算</div>';
+                document.getElementById('xorPreview').parentElement.classList.remove('success');
+                document.getElementById('exportSection').style.display = 'none';
+                
+                // 自动重新处理
+                setTimeout(processComplete, 300);
+            }
+        });
+
+        // 页面加载时自动测试服务器连接
+        window.addEventListener('load', () => {
+            setTimeout(testServerConnection, 1000);
+        });
+    </script>
+</body>
+</html>

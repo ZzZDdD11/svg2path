@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>svg-flatten 浏览器测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/svgflatten@1.0.3/dist/svgflatten.min.js"></script>
+</head>
+<body>
+<div id="original-svg"></div>
+<div id="processed-svg"></div>
+
+<script>
+    // 创建一个简单的 SVG 元素
+    const createSampleSvg = () => {
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", "300");
+        svg.setAttribute("height", "200");
+
+        const circle = document.createElementNS(svgNS, "circle");
+        circle.setAttribute("cx", "100");
+        circle.setAttribute("cy", "100");
+        circle.setAttribute("r", "50");
+        circle.setAttribute("fill", "red");
+
+        svg.appendChild(circle);
+        return svg;
+    };
+
+    // 主测试函数
+    function testSvgFlatten() {
+        try {
+            // 创建并显示原始 SVG
+            const originalSvg = createSampleSvg();
+            document.getElementById('original-svg').appendChild(originalSvg.cloneNode(true));
+
+            // 关键修改：使用 window.svgFlatten 而不是直接使用 SvgFlatten
+            if (!window.svgFlatten) {
+                throw new Error('svg-flatten 库未正确加载');
+            }
+
+            // 使用 svg-flatten 处理 SVG
+            const flattenedPaths = window.svgFlatten(originalSvg, { maxError: 0.1 });
+
+            // 创建一个新的 SVG 只包含路径
+            const svgNS = "http://www.w3.org/2000/svg";
+            const resultSvg = document.createElementNS(svgNS, "svg");
+            resultSvg.setAttribute("width", "300");
+            resultSvg.setAttribute("height", "200");
+
+            // 将处理后的路径添加到新 SVG
+            flattenedPaths.forEach(path => {
+                const pathElement = document.createElementNS(svgNS, "path");
+                pathElement.setAttribute("d", path.pathData);
+                pathElement.setAttribute("fill", "black");
+                resultSvg.appendChild(pathElement);
+            });
+
+            // 显示处理后的 SVG
+            document.getElementById('processed-svg').appendChild(resultSvg);
+
+            console.log('✅ svg-flatten 处理成功！');
+            console.log('处理后的路径数量:', flattenedPaths.length);
+        } catch (error) {
+            console.error('❌ svg-flatten 处理失败:', error);
+            alert('处理 SVG 时出错，请查看控制台日志');
+        }
+    }
+
+    // 页面加载完成后执行测试
+    document.addEventListener('DOMContentLoaded', testSvgFlatten);
+</script>
+</body>
+</html>

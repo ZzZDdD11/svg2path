@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clipper集成测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .result {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .success { background-color: #d4edda; color: #155724; }
+        svg { border: 1px solid #ccc; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Clipper API 集成测试</h1>
+    
+    <div class="test-section">
+        <h3>1. 服务器连接测试</h3>
+        <button onclick="testConnection()">测试连接</button>
+        <div id="connectionResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 简单SVG测试</h3>
+        <button onclick="testSimpleSVG()">测试简单SVG</button>
+        <div id="simpleResult" class="result"></div>
+        <div id="simplePreview"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. 彩色转黑白测试</h3>
+        <button onclick="testColorConversion()">测试颜色转换</button>
+        <div id="colorResult" class="result"></div>
+        <div id="colorPreview"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. 完整流程测试</h3>
+        <button onclick="testFullProcess()">测试完整流程</button>
+        <div id="fullResult" class="result"></div>
+        <div id="fullPreview"></div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:8888';
+
+        // 测试服务器连接
+        async function testConnection() {
+            const result = document.getElementById('connectionResult');
+            result.textContent = '正在测试连接...';
+            result.className = 'result';
+
+            try {
+                const response = await fetch(`${SERVER_URL}/clipper/whiten`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        xml: '<svg><rect fill="red" width="10" height="10"/></svg>',
+                        layer: 10
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                result.textContent = `连接成功!\n状态: ${data.status}\n消息: ${data.msg}`;
+                result.className = 'result success';
+                
+            } catch (error) {
+                result.textContent = `连接失败: ${error.message}`;
+                result.className = 'result error';
+                console.error('连接测试失败:', error);
+            }
+        }
+
+        // 测试简单SVG
+        async function testSimpleSVG() {
+            const result = document.getElementById('simpleResult');
+            const preview = document.getElementById('simplePreview');
+            result.textContent = '正在测试简单SVG...';
+            result.className = 'result';
+
+            const testSVG = '<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="80" height="80" fill="red"/></svg>';
+
+            try {
+                const response = await fetch(`${SERVER_URL}/clipper/whiten`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ xml: testSVG, layer: 10 })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.status !== 0) {
+                    throw new Error(data.msg || '服务器返回错误');
+                }
+
+                result.textContent = `简单SVG测试成功!\n原始SVG长度: ${testSVG.length}\n结果SVG长度: ${data.data.length}`;
+                result.className = 'result success';
+                
+                preview.innerHTML = `
+                    <h4>原始:</h4>${testSVG}
+                    <h4>结果:</h4>${data.data}
+                `;
+                
+            } catch (error) {
+                result.textContent = `简单SVG测试失败: ${error.message}`;
+                result.className = 'result error';
+                console.error('简单SVG测试失败:', error);
+            }
+        }
+
+        // 颜色转换函数
+        function parseColor(color) {
+            if (!color || color === 'none' || color === 'transparent') return null;
+
+            if (color.startsWith('#')) {
+                const hex = color.slice(1);
+                if (hex.length === 3) {
+                    return {
+                        r: parseInt(hex[0] + hex[0], 16),
+                        g: parseInt(hex[1] + hex[1], 16),
+                        b: parseInt(hex[2] + hex[2], 16)
+                    };
+                } else if (hex.length === 6) {
+                    return {
+                        r: parseInt(hex.substr(0, 2), 16),
+                        g: parseInt(hex.substr(2, 2), 16),
+                        b: parseInt(hex.substr(4, 2), 16)
+                    };
+                }
+            }
+
+            const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+            if (rgbMatch) {
+                return {
+                    r: parseInt(rgbMatch[1]),
+                    g: parseInt(rgbMatch[2]),
+                    b: parseInt(rgbMatch[3])
+                };
+            }
+
+            const namedColors = {
+                'red': {r: 255, g: 0, b: 0}, 'green': {r: 0, g: 128, b: 0}, 'blue': {r: 0, g: 0, b: 255},
+                'black': {r: 0, g: 0, b: 0}, 'white': {r: 255, g: 255, b: 255}
+            };
+
+            return namedColors[color.toLowerCase()] || {r: 0, g: 0, b: 0};
+        }
+
+        function rgbToGrayscale(r, g, b) {
+            return 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+
+        function colorToMonochrome(color, threshold = 128) {
+            const rgb = parseColor(color);
+            if (!rgb) return color;
+            
+            const grayscale = rgbToGrayscale(rgb.r, rgb.g, rgb.b);
+            return grayscale > threshold ? '#FFFFFF' : '#000000';
+        }
+
+        function convertSvgToMonochrome(svgString, threshold = 128) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+            const svg = doc.documentElement;
+            
+            const colorAttributes = ['fill', 'stroke'];
+            const elements = svg.querySelectorAll('*');
+            
+            elements.forEach(element => {
+                colorAttributes.forEach(attr => {
+                    const color = element.getAttribute(attr);
+                    if (color && color !== 'none' && color !== 'transparent' && !color.startsWith('url(')) {
+                        const monoColor = colorToMonochrome(color, threshold);
+                        element.setAttribute(attr, monoColor);
+                    }
+                });
+            });
+            
+            return new XMLSerializer().serializeToString(svg);
+        }
+
+        // 测试颜色转换
+        async function testColorConversion() {
+            const result = document.getElementById('colorResult');
+            const preview = document.getElementById('colorPreview');
+            result.textContent = '正在测试颜色转换...';
+            result.className = 'result';
+
+            try {
+                const originalSVG = '<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#FF6B6B"/><circle cx="150" cy="50" r="40" fill="#4ECDC4"/><rect x="75" y="75" width="50" height="50" fill="blue"/></svg>';
+                
+                const monoSVG = convertSvgToMonochrome(originalSVG, 128);
+                
+                result.textContent = `颜色转换成功!\n原始长度: ${originalSVG.length}\n转换后长度: ${monoSVG.length}`;
+                result.className = 'result success';
+                
+                preview.innerHTML = `
+                    <h4>原始彩色:</h4>${originalSVG}
+                    <h4>转换黑白:</h4>${monoSVG}
+                `;
+                
+            } catch (error) {
+                result.textContent = `颜色转换失败: ${error.message}`;
+                result.className = 'result error';
+                console.error('颜色转换失败:', error);
+            }
+        }
+
+        // 测试完整流程
+        async function testFullProcess() {
+            const result = document.getElementById('fullResult');
+            const preview = document.getElementById('fullPreview');
+            result.textContent = '正在测试完整流程...';
+            result.className = 'result';
+
+            try {
+                // 步骤1: 原始彩色SVG
+                const originalSVG = '<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="red"/><circle cx="150" cy="50" r="40" fill="green"/><circle cx="100" cy="130" r="40" fill="blue"/></svg>';
+                
+                result.textContent += '\n步骤1: 准备原始SVG ✓';
+                
+                // 步骤2: 转换为黑白
+                const monoSVG = convertSvgToMonochrome(originalSVG, 128);
+                result.textContent += '\n步骤2: 转换为黑白 ✓';
+                
+                // 步骤3: 调用clipper API
+                const response = await fetch(`${SERVER_URL}/clipper/whiten`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ xml: monoSVG, layer: 20 })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.status !== 0) {
+                    throw new Error(data.msg || 'API返回错误');
+                }
+
+                result.textContent += '\n步骤3: Clipper异或运算 ✓';
+                result.textContent += `\n\n完整流程测试成功!`;
+                result.className = 'result success';
+                
+                preview.innerHTML = `
+                    <h4>1. 原始彩色:</h4>${originalSVG}
+                    <h4>2. 转换黑白:</h4>${monoSVG}
+                    <h4>3. 异或结果:</h4>${data.data}
+                `;
+                
+            } catch (error) {
+                result.textContent += `\n\n完整流程测试失败: ${error.message}`;
+                result.className = 'result error';
+                console.error('完整流程测试失败:', error);
+            }
+        }
+
+        // 页面加载时自动测试连接
+        window.addEventListener('load', () => {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html> 
